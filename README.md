@@ -1,8 +1,8 @@
 # SoloTerm Grapheme
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/soloterm/grapheme.svg)](https://packagist.org/packages/soloterm/grapheme)
-[![Total Downloads](https://img.shields.io/packagist/dt/soloterm/grapheme.svg)](https://packagist.org/packages/soloterm/grapheme)
-[![License](https://img.shields.io/packagist/l/soloterm/grapheme.svg)](https://packagist.org/packages/soloterm/grapheme)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/soloterm/grapheme)](https://packagist.org/packages/soloterm/grapheme)
+[![Total Downloads](https://img.shields.io/packagist/dt/soloterm/grapheme)](https://packagist.org/packages/soloterm/grapheme)
+[![License](https://img.shields.io/packagist/l/soloterm/grapheme)](https://packagist.org/packages/soloterm/grapheme)
 
 A highly optimized PHP library for calculating the display width of Unicode graphemes in terminal environments.
 Accurately determine how many columns a character will occupy in the terminal, including complex emoji, combining marks,
