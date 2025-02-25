@@ -15,7 +15,6 @@ use SoloTerm\Grapheme\Grapheme;
 
 class GraphemeWidthTest extends TestCase
 {
-
     #[Test]
     public function test_grapheme_display_width_extensive(): void
     {
@@ -243,8 +242,8 @@ class GraphemeWidthTest extends TestCase
             ["👋\u{1F3FD}", 2], // Waving Hand: Medium Skin Tone
 
             // Non-standard flag sequences
-            ["🏴󠁧󠁢󠁳󠁣󠁴󠁿", 2], // Scotland flag (complex sequence)
-            ["🏴󠁧󠁢󠁥󠁮󠁧󠁿", 2], // England flag (complex sequence)
+            ['🏴󠁧󠁢󠁳󠁣󠁴󠁿', 2], // Scotland flag (complex sequence)
+            ['🏴󠁧󠁢󠁥󠁮󠁧󠁿', 2], // England flag (complex sequence)
 
             // Dingbats style characters
             ["\u{2756}", 1], // Black Diamond Minus White X
@@ -277,7 +276,7 @@ class GraphemeWidthTest extends TestCase
             ["\u{203C}\u{FE0E}", 1], // Double Exclamation Mark with text presentation
 
             // Testing joined graphemes (normally handled by Unicode segmentation but good to verify)
-            ["क्ष", 1], // Devanagari KA + virama + SSA (forms a conjunct)
+            ['क्ष', 1], // Devanagari KA + virama + SSA (forms a conjunct)
 
             // More zero-width characters
             ["\u{034F}", 0], // Combining Grapheme Joiner
