@@ -51,7 +51,6 @@ class Grapheme
 
     protected static $hasZeroWidthPattern = '/[\x{200B}\x{200C}\x{200D}\x{FEFF}\x{2060}-\x{2064}\x{034F}\x{180E}\x{180B}-\x{180D}\x{061C}\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FFF9}-\x{FFFB}\x{1160}\x{115F}\x{3164}]/u';
 
-
     protected static $textPresentationSymbolsPattern = '/^[\x{2600}-\x{26FF}\x{2700}-\x{27BF}\x{1F100}-\x{1F1FF}]$/u';
 
     public static function wcwidth(string $grapheme): int
