@@ -31,5 +31,6 @@
         "ext-intl": "For best performance"
     },
     "scripts": {
+        "test": "vendor/bin/phpunit"
     }
 }
