@@ -1,4 +1,4 @@
-# SoloTerm Grapheme
+# Grapheme
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/soloterm/grapheme)](https://packagist.org/packages/soloterm/grapheme)
 [![Total Downloads](https://img.shields.io/packagist/dt/soloterm/grapheme)](https://packagist.org/packages/soloterm/grapheme)
