@@ -103,9 +103,9 @@ class GraphemeWidthTest extends TestCase
 
         $totalCalls = $iterations * count($testChars);
         echo "\n\nPerformance Benchmark ({$totalCalls} calls):\n";
-        echo "  Cached:   " . round($cachedTime, 2) . " ms (" . round($totalCalls / $cachedTime * 1000) . " calls/sec)\n";
-        echo "  Uncached: " . round($uncachedTime, 2) . " ms (" . round($totalCalls / $uncachedTime * 1000) . " calls/sec)\n";
-        echo "  Speedup:  " . round($uncachedTime / $cachedTime, 1) . "x\n";
+        echo '  Cached:   ' . round($cachedTime, 2) . ' ms (' . round($totalCalls / $cachedTime * 1000) . " calls/sec)\n";
+        echo '  Uncached: ' . round($uncachedTime, 2) . ' ms (' . round($totalCalls / $uncachedTime * 1000) . " calls/sec)\n";
+        echo '  Speedup:  ' . round($uncachedTime / $cachedTime, 1) . "x\n";
 
         // Cache should be significantly faster
         $this->assertLessThan($uncachedTime, $cachedTime);
