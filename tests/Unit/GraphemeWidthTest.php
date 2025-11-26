@@ -62,6 +62,56 @@ class GraphemeWidthTest extends TestCase
     }
 
     #[Test]
+    public function benchmark_performance(): void
+    {
+        $iterations = 10000;
+
+        // Test data representing common use cases
+        $testChars = [
+            'a', 'Z', ' ', '@',           // ASCII (most common)
+            'é', 'ñ', 'ü',                // Latin with accents
+            '文', '字', 'あ', '한',         // CJK (width 2)
+            '😀', '🚀', '👍',              // Emoji (width 2)
+            '👨‍👩‍👧‍👦',                        // Complex ZWJ sequence
+            "\u{200B}",                   // Zero-width
+        ];
+
+        // Warm up cache
+        foreach ($testChars as $char) {
+            Grapheme::wcwidth($char);
+        }
+
+        // Benchmark cached lookups
+        $start = microtime(true);
+        for ($i = 0; $i < $iterations; $i++) {
+            foreach ($testChars as $char) {
+                Grapheme::wcwidth($char);
+            }
+        }
+        $cachedTime = (microtime(true) - $start) * 1000;
+
+        // Clear cache and benchmark uncached
+        Grapheme::clearCache();
+        $start = microtime(true);
+        for ($i = 0; $i < $iterations; $i++) {
+            Grapheme::clearCache(); // Force recalculation
+            foreach ($testChars as $char) {
+                Grapheme::wcwidth($char);
+            }
+        }
+        $uncachedTime = (microtime(true) - $start) * 1000;
+
+        $totalCalls = $iterations * count($testChars);
+        echo "\n\nPerformance Benchmark ({$totalCalls} calls):\n";
+        echo "  Cached:   " . round($cachedTime, 2) . " ms (" . round($totalCalls / $cachedTime * 1000) . " calls/sec)\n";
+        echo "  Uncached: " . round($uncachedTime, 2) . " ms (" . round($totalCalls / $uncachedTime * 1000) . " calls/sec)\n";
+        echo "  Speedup:  " . round($uncachedTime / $cachedTime, 1) . "x\n";
+
+        // Cache should be significantly faster
+        $this->assertLessThan($uncachedTime, $cachedTime);
+    }
+
+    #[Test]
     public function test_grapheme_display_width_extensive(): void
     {
         // Create an array of characters to test with their expected widths
