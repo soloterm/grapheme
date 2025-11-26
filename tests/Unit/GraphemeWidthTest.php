@@ -15,6 +15,52 @@ use SoloTerm\Grapheme\Grapheme;
 
 class GraphemeWidthTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Clear cache before each test to ensure isolation
+        Grapheme::clearCache();
+    }
+
+    #[Test]
+    public function empty_string_returns_zero(): void
+    {
+        $this->assertSame(0, Grapheme::wcwidth(''));
+    }
+
+    #[Test]
+    public function cache_can_be_cleared(): void
+    {
+        // Populate cache
+        Grapheme::wcwidth('a');
+        Grapheme::wcwidth('文');
+
+        $this->assertNotEmpty(Grapheme::$cache);
+
+        // Clear cache
+        Grapheme::clearCache();
+
+        $this->assertEmpty(Grapheme::$cache);
+    }
+
+    #[Test]
+    public function cache_auto_clears_when_max_size_exceeded(): void
+    {
+        // Set a small max cache size
+        Grapheme::setMaxCacheSize(5);
+
+        // Fill cache beyond max size
+        for ($i = 0; $i < 10; $i++) {
+            Grapheme::wcwidth(chr(65 + $i)); // A, B, C, ...
+        }
+
+        // Cache should have been cleared and only contain recent entries
+        $this->assertLessThanOrEqual(5, count(Grapheme::$cache));
+
+        // Reset to default
+        Grapheme::setMaxCacheSize(10000);
+    }
+
     #[Test]
     public function test_grapheme_display_width_extensive(): void
     {

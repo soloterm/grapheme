@@ -12,7 +12,18 @@ use Normalizer;
 
 class Grapheme
 {
-    public static $cache = [];
+    /**
+     * Cache of previously calculated widths.
+     *
+     * @var array<string, int>
+     */
+    public static array $cache = [];
+
+    /**
+     * Maximum cache size before automatic cleanup.
+     * Prevents unbounded memory growth in long-running processes.
+     */
+    protected static int $maxCacheSize = 10000;
 
     protected static $maybeNeedsNormalizationPattern = '/[\p{M}\x{0300}-\x{036F}\x{1AB0}-\x{1AFF}\x{1DC0}-\x{1DFF}\x{20D0}-\x{20FF}]/u';
 
@@ -53,11 +64,48 @@ class Grapheme
 
     protected static $textPresentationSymbolsPattern = '/^[\x{2600}-\x{26FF}\x{2700}-\x{27BF}\x{1F100}-\x{1F1FF}]$/u';
 
+    /**
+     * Clear the width cache.
+     *
+     * Useful for long-running processes to free memory, or for testing.
+     */
+    public static function clearCache(): void
+    {
+        static::$cache = [];
+    }
+
+    /**
+     * Set the maximum cache size.
+     *
+     * When the cache exceeds this size, it will be cleared to prevent
+     * unbounded memory growth in long-running processes.
+     */
+    public static function setMaxCacheSize(int $size): void
+    {
+        static::$maxCacheSize = $size;
+    }
+
+    /**
+     * Calculate the display width of a Unicode grapheme in terminal columns.
+     *
+     * @param  string  $grapheme  A single grapheme cluster
+     * @return int The display width (0, 1, or 2 columns)
+     */
     public static function wcwidth(string $grapheme): int
     {
+        // Handle empty string explicitly
+        if ($grapheme === '') {
+            return 0;
+        }
+
         // Check cache first (fastest path)
         if (isset(static::$cache[$grapheme])) {
             return static::$cache[$grapheme];
+        }
+
+        // Prevent unbounded cache growth in long-running processes
+        if (count(static::$cache) >= static::$maxCacheSize) {
+            static::$cache = [];
         }
 
         // Fast path for pure ASCII: If strlen == mb_strlen, it's single-byte only → width 1
@@ -139,7 +187,7 @@ class Grapheme
             // Otherwise, measure the base character
             $width = mb_strwidth($baseChar, 'UTF-8');
 
-            return static::$cache[$grapheme] = ($width > 0) ? $width : 1;
+            return static::$cache[$grapheme] = ($width !== false && $width > 0) ? $width : 1;
         }
 
         // Check if the grapheme contains any zero-width characters
@@ -172,7 +220,9 @@ class Grapheme
 
         // Check for special characters - if none, do direct width calculation
         if (!preg_match(static::$specialCharsPattern, $grapheme)) {
-            return static::$cache[$grapheme] = mb_strwidth($grapheme, 'UTF-8');
+            $width = mb_strwidth($grapheme, 'UTF-8');
+
+            return static::$cache[$grapheme] = ($width !== false && $width > 0) ? $width : 1;
         }
 
         // Single letter followed by combining marks
@@ -199,6 +249,6 @@ class Grapheme
         $filtered = preg_replace(static::$zwjFilterPattern, '', $grapheme);
         $width = mb_strwidth($filtered, 'UTF-8');
 
-        return static::$cache[$grapheme] = ($width > 0) ? $width : 1;
+        return static::$cache[$grapheme] = ($width !== false && $width > 0) ? $width : 1;
     }
 }
