@@ -59,11 +59,28 @@ Grapheme::wcwidth("e\u{0301}"); // Returns: 1 (e + combining acute)
 // Special cases
 Grapheme::wcwidth("⚠\u{FE0E}"); // Returns: 1 (Warning sign in text presentation)
 Grapheme::wcwidth("⚠\u{FE0F}"); // Returns: 2 (Warning sign in emoji presentation)
+
+// Empty string (width: 0)
+Grapheme::wcwidth(''); // Returns: 0
+```
+
+### Cache Management
+
+Results are cached automatically for performance. For long-running processes, you can manage the cache:
+
+```php
+// Clear the cache to free memory
+Grapheme::clearCache();
+
+// Set maximum cache size (default: 10,000)
+// Cache auto-clears when this limit is exceeded
+Grapheme::setMaxCacheSize(5000);
 ```
 
 ## Features
 
-- **Highly optimized** for performance with early-return paths and smart caching
+- **Highly optimized** for performance with byte-level fast paths and smart caching
+- **Memory safe** for long-running processes with configurable cache limits
 - **Comprehensive Unicode support** including:
     - CJK (Chinese, Japanese, Korean) characters
     - Emoji (including skin tone modifiers, gender modifiers, flags)
@@ -71,7 +88,7 @@ Grapheme::wcwidth("⚠\u{FE0F}"); // Returns: 2 (Warning sign in emoji presentat
     - Combining marks and accents
     - Regional indicators and flags
     - Variation selectors
-- **Carefully tested** against a wide range of Unicode characters
+- **Carefully tested** against a wide range of Unicode characters (180+ assertions)
 - **Minimal dependencies** - only requires PHP 8.1+ and an optional intl extension
 - **Compatible** with most terminal environments
 
@@ -89,11 +106,13 @@ This library aims to match the behavior of `wcwidth()` in modern terminal emulat
 
 The library uses a series of optimized patterns and checks to accurately determine character width:
 
-1. Fast paths for ASCII and zero-width characters
-2. Special handling for complex scripts like Devanagari
-3. Smart detection of emoji and variation selectors
-4. Proper handling of zero-width joiners (ZWJ) and other invisible characters
-5. Caching of results for improved performance
+1. **Byte-level fast paths** - Single-byte ASCII, CJK (UTF-8 0xE4-0xE9), and emoji (UTF-8 0xF0 0x9F) are detected by examining raw bytes, avoiding expensive regex operations
+2. **Smart caching** - Results are cached with automatic size limiting to prevent memory growth in long-running processes
+3. **Special handling** for complex scripts like Devanagari
+4. **Smart detection** of emoji and variation selectors
+5. **Proper handling** of zero-width joiners (ZWJ) and other invisible characters
+
+Performance benchmarks show ~1.6M uncached calls/sec and ~12M cached calls/sec on modern hardware.
 
 ## Testing
 
@@ -101,8 +120,7 @@ The library uses a series of optimized patterns and checks to accurately determi
 composer test
 ```
 
-The test suite includes over 150 different test cases covering many possible Unicode scenarios. Please feel free to add
-more.
+The test suite includes 180+ assertions covering extensive Unicode scenarios including ASCII, CJK, emoji, zero-width characters, variation selectors, and complex ZWJ sequences. Please feel free to add more.
 
 ## Contributing
 
