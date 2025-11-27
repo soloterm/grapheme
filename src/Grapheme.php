@@ -12,7 +12,23 @@ use Normalizer;
 
 class Grapheme
 {
-    public static $cache = [];
+    /**
+     * Cache of previously calculated widths.
+     *
+     * @var array<string, int>
+     */
+    public static array $cache = [];
+
+    /**
+     * Current cache size (avoids count() on every call).
+     */
+    protected static int $cacheSize = 0;
+
+    /**
+     * Maximum cache size before automatic cleanup.
+     * Prevents unbounded memory growth in long-running processes.
+     */
+    protected static int $maxCacheSize = 10000;
 
     protected static $maybeNeedsNormalizationPattern = '/[\p{M}\x{0300}-\x{036F}\x{1AB0}-\x{1AFF}\x{1DC0}-\x{1DFF}\x{20D0}-\x{20FF}]/u';
 
@@ -53,36 +69,109 @@ class Grapheme
 
     protected static $textPresentationSymbolsPattern = '/^[\x{2600}-\x{26FF}\x{2700}-\x{27BF}\x{1F100}-\x{1F1FF}]$/u';
 
+    /**
+     * Clear the width cache.
+     *
+     * Useful for long-running processes to free memory, or for testing.
+     */
+    public static function clearCache(): void
+    {
+        static::$cache = [];
+        static::$cacheSize = 0;
+    }
+
+    /**
+     * Set the maximum cache size.
+     *
+     * When the cache exceeds this size, it will be cleared to prevent
+     * unbounded memory growth in long-running processes.
+     */
+    public static function setMaxCacheSize(int $size): void
+    {
+        static::$maxCacheSize = $size;
+    }
+
+    /**
+     * Cache a width value and return it.
+     */
+    protected static function cache(string $grapheme, int $width): int
+    {
+        static::$cacheSize++;
+
+        return static::$cache[$grapheme] = $width;
+    }
+
+    /**
+     * Calculate the display width of a Unicode grapheme in terminal columns.
+     *
+     * @param  string  $grapheme  A single grapheme cluster
+     * @return int The display width (0, 1, or 2 columns)
+     */
     public static function wcwidth(string $grapheme): int
     {
+        // Handle empty string explicitly
+        if ($grapheme === '') {
+            return 0;
+        }
+
         // Check cache first (fastest path)
         if (isset(static::$cache[$grapheme])) {
             return static::$cache[$grapheme];
         }
 
-        // Fast path for pure ASCII: If strlen == mb_strlen, it's single-byte only → width 1
-        if (strlen($grapheme) === mb_strlen($grapheme)) {
-            return static::$cache[$grapheme] = 1;
+        // Prevent unbounded cache growth in long-running processes
+        if (static::$cacheSize >= static::$maxCacheSize) {
+            static::$cache = [];
+            static::$cacheSize = 0;
+        }
+
+        $len = strlen($grapheme);
+
+        // Fast path for single-byte ASCII (most common case)
+        // ASCII bytes are 0x00-0x7F, and single-byte strings are pure ASCII
+        if ($len === 1) {
+            return static::cache($grapheme, 1);
+        }
+
+        // Fast path for pure ASCII multi-char: all bytes < 0x80
+        // Check first byte - if it's ASCII, likely all are (common case)
+        $firstByte = ord($grapheme[0]);
+        if ($firstByte < 0x80 && strlen($grapheme) === mb_strlen($grapheme)) {
+            return static::cache($grapheme, 1);
+        }
+
+        // Fast path for common CJK characters (3-byte UTF-8 sequences)
+        // CJK Unified Ideographs: U+4E00-U+9FFF → UTF-8: E4 B8 80 to E9 BF BF
+        if ($len === 3 && $firstByte >= 0xE4 && $firstByte <= 0xE9) {
+            $secondByte = ord($grapheme[1]);
+            if ($secondByte >= 0x80 && $secondByte <= 0xBF) {
+                return static::cache($grapheme, 2);
+            }
+        }
+
+        // Fast path for common emoji (4-byte UTF-8 sequences starting with F0 9F)
+        if ($len >= 4 && $firstByte === 0xF0 && ord($grapheme[1]) === 0x9F) {
+            return static::cache($grapheme, 2);
         }
 
         // Fast path: zero-width character check for single characters
         if (mb_strlen($grapheme) === 1 && preg_match(static::$hasZeroWidthPattern, $grapheme)) {
-            return static::$cache[$grapheme] = 0;
+            return static::cache($grapheme, 0);
         }
 
         // Handle ASCII + Zero Width sequences (like 'a‍')
         if (preg_match(static::$asciiZwjPattern, $grapheme)) {
-            return static::$cache[$grapheme] = 1;
+            return static::cache($grapheme, 1);
         }
 
         // Check for special flag sequence patterns (Scotland, England, etc.)
         if (preg_match(static::$flagSequencePattern, $grapheme)) {
-            return static::$cache[$grapheme] = 2;
+            return static::cache($grapheme, 2);
         }
 
         // Devanagari conjuncts and other complex scripts
         if (preg_match(static::$devanagariPattern, $grapheme)) {
-            return static::$cache[$grapheme] = 1;
+            return static::cache($grapheme, 1);
         }
 
         // Only normalize if there's a chance of combining marks
@@ -96,21 +185,21 @@ class Grapheme
             if (mb_strlen(preg_replace(static::$zwjFilterPattern, '', $grapheme)) === 1) {
                 // If it's an emoji + ZWJ, it should be width 2
                 if (preg_match(static::$emojiZwjPattern, $grapheme)) {
-                    return static::$cache[$grapheme] = 2;
+                    return static::cache($grapheme, 2);
                 }
 
                 // If it's a CJK/wide char + ZWJ, it should be width 2
                 if (preg_match(static::$eastAsianPattern, mb_substr($grapheme, 0, 1))) {
-                    return static::$cache[$grapheme] = 2;
+                    return static::cache($grapheme, 2);
                 }
 
                 // Otherwise, it should be width 1 (ASCII, Latin, etc. + ZWJ)
-                return static::$cache[$grapheme] = 1;
+                return static::cache($grapheme, 1);
             }
 
             // If it's an emoji ZWJ sequence
             if (preg_match(static::$emojiWithZwjPattern, $grapheme)) {
-                return static::$cache[$grapheme] = 2;
+                return static::cache($grapheme, 2);
             }
         }
 
@@ -122,24 +211,24 @@ class Grapheme
             if (mb_strpos($grapheme, "\u{FE0E}") !== false) {
                 // Check if it's an emoji-capable character
                 if (preg_match(static::$textStyleEmojiPattern, $baseChar)) {
-                    return static::$cache[$grapheme] = 1;
+                    return static::cache($grapheme, 1);
                 }
             }
 
             // Check if emoji with variation selector
             if (preg_match(static::$emojiPattern, $baseChar)) {
-                return static::$cache[$grapheme] = 2;
+                return static::cache($grapheme, 2);
             }
 
             // Check if East Asian character with variation selector
             if (preg_match(static::$eastAsianPattern, $baseChar)) {
-                return static::$cache[$grapheme] = 2;
+                return static::cache($grapheme, 2);
             }
 
             // Otherwise, measure the base character
             $width = mb_strwidth($baseChar, 'UTF-8');
 
-            return static::$cache[$grapheme] = ($width > 0) ? $width : 1;
+            return static::cache($grapheme, ($width !== false && $width > 0) ? $width : 1);
         }
 
         // Check if the grapheme contains any zero-width characters
@@ -152,53 +241,55 @@ class Grapheme
 
             // If nothing is left after removing zero-width chars, or only combining marks left
             if ($filtered === '' || preg_match(static::$onlyCombiningMarksPattern, $filtered)) {
-                return static::$cache[$grapheme] = 0;
+                return static::cache($grapheme, 0);
             }
 
             // Handle base char + combining marks + ZWJ
             if (preg_match(static::$baseCharCombiningZwjPattern, $grapheme)) {
-                return static::$cache[$grapheme] = 1;
+                return static::cache($grapheme, 1);
             }
 
             // If it's a single character + zero-width chars
             if (mb_strlen($filtered) === 1) {
                 if (preg_match(static::$eastAsianPattern, $filtered)) {
-                    return static::$cache[$grapheme] = 2;
+                    return static::cache($grapheme, 2);
                 }
 
-                return static::$cache[$grapheme] = 1;
+                return static::cache($grapheme, 1);
             }
         }
 
         // Check for special characters - if none, do direct width calculation
         if (!preg_match(static::$specialCharsPattern, $grapheme)) {
-            return static::$cache[$grapheme] = mb_strwidth($grapheme, 'UTF-8');
+            $width = mb_strwidth($grapheme, 'UTF-8');
+
+            return static::cache($grapheme, ($width !== false && $width > 0) ? $width : 1);
         }
 
         // Single letter followed by combining marks
         if (preg_match(static::$singleLetterWithCombiningMarksPattern, $grapheme)) {
-            return static::$cache[$grapheme] = 1;
+            return static::cache($grapheme, 1);
         }
 
         // Handle skin tones or flags (single grapheme)
         if (grapheme_strlen($grapheme) === 1) {
             if (preg_match(static::$skinTonePattern, $grapheme)) {
-                return static::$cache[$grapheme] = 2;
+                return static::cache($grapheme, 2);
             }
             if (preg_match(static::$flagEmojiPattern, $grapheme)) {
-                return static::$cache[$grapheme] = 2;
+                return static::cache($grapheme, 2);
             }
         }
 
         // Handle symbols that should be width 1 in text presentation
         if (preg_match(static::$textPresentationSymbolsPattern, $grapheme) && mb_strpos($grapheme, "\u{FE0F}") === false) {
-            return static::$cache[$grapheme] = 1;
+            return static::cache($grapheme, 1);
         }
 
         // Default fallback to mb_strwidth, carefully filtering zero-width characters
         $filtered = preg_replace(static::$zwjFilterPattern, '', $grapheme);
         $width = mb_strwidth($filtered, 'UTF-8');
 
-        return static::$cache[$grapheme] = ($width > 0) ? $width : 1;
+        return static::cache($grapheme, ($width !== false && $width > 0) ? $width : 1);
     }
 }

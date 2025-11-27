@@ -72,7 +72,7 @@ Grapheme::wcwidth("⚠\u{FE0F}"); // Returns: 2 (Warning sign in emoji presentat
     - Regional indicators and flags
     - Variation selectors
 - **Carefully tested** against a wide range of Unicode characters
-- **Minimal dependencies** - only requires PHP 8.2+ and an optional intl extension
+- **Minimal dependencies** - only requires PHP 8.1+ and an optional intl extension
 - **Compatible** with most terminal environments
 
 ## Terminal Compatibility
@@ -81,7 +81,7 @@ This library aims to match the behavior of `wcwidth()` in modern terminal emulat
 
 ## Requirements
 
-- PHP 8.2 or higher
+- PHP 8.1 or higher
 - The `symfony/polyfill-intl-normalizer` package is included as a dependency
 - The `ext-intl` extension is recommended for best performance
 

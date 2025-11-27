@@ -15,6 +15,102 @@ use SoloTerm\Grapheme\Grapheme;
 
 class GraphemeWidthTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Clear cache before each test to ensure isolation
+        Grapheme::clearCache();
+    }
+
+    #[Test]
+    public function empty_string_returns_zero(): void
+    {
+        $this->assertSame(0, Grapheme::wcwidth(''));
+    }
+
+    #[Test]
+    public function cache_can_be_cleared(): void
+    {
+        // Populate cache
+        Grapheme::wcwidth('a');
+        Grapheme::wcwidth('文');
+
+        $this->assertNotEmpty(Grapheme::$cache);
+
+        // Clear cache
+        Grapheme::clearCache();
+
+        $this->assertEmpty(Grapheme::$cache);
+    }
+
+    #[Test]
+    public function cache_auto_clears_when_max_size_exceeded(): void
+    {
+        // Set a small max cache size
+        Grapheme::setMaxCacheSize(5);
+
+        // Fill cache beyond max size
+        for ($i = 0; $i < 10; $i++) {
+            Grapheme::wcwidth(chr(65 + $i)); // A, B, C, ...
+        }
+
+        // Cache should have been cleared and only contain recent entries
+        $this->assertLessThanOrEqual(5, count(Grapheme::$cache));
+
+        // Reset to default
+        Grapheme::setMaxCacheSize(10000);
+    }
+
+    #[Test]
+    public function benchmark_performance(): void
+    {
+        $iterations = 10000;
+
+        // Test data representing common use cases
+        $testChars = [
+            'a', 'Z', ' ', '@',           // ASCII (most common)
+            'é', 'ñ', 'ü',                // Latin with accents
+            '文', '字', 'あ', '한',         // CJK (width 2)
+            '😀', '🚀', '👍',              // Emoji (width 2)
+            '👨‍👩‍👧‍👦',                        // Complex ZWJ sequence
+            "\u{200B}",                   // Zero-width
+        ];
+
+        // Warm up cache
+        foreach ($testChars as $char) {
+            Grapheme::wcwidth($char);
+        }
+
+        // Benchmark cached lookups
+        $start = microtime(true);
+        for ($i = 0; $i < $iterations; $i++) {
+            foreach ($testChars as $char) {
+                Grapheme::wcwidth($char);
+            }
+        }
+        $cachedTime = (microtime(true) - $start) * 1000;
+
+        // Clear cache and benchmark uncached
+        Grapheme::clearCache();
+        $start = microtime(true);
+        for ($i = 0; $i < $iterations; $i++) {
+            Grapheme::clearCache(); // Force recalculation
+            foreach ($testChars as $char) {
+                Grapheme::wcwidth($char);
+            }
+        }
+        $uncachedTime = (microtime(true) - $start) * 1000;
+
+        $totalCalls = $iterations * count($testChars);
+        echo "\n\nPerformance Benchmark ({$totalCalls} calls):\n";
+        echo '  Cached:   ' . round($cachedTime, 2) . ' ms (' . round($totalCalls / $cachedTime * 1000) . " calls/sec)\n";
+        echo '  Uncached: ' . round($uncachedTime, 2) . ' ms (' . round($totalCalls / $uncachedTime * 1000) . " calls/sec)\n";
+        echo '  Speedup:  ' . round($uncachedTime / $cachedTime, 1) . "x\n";
+
+        // Cache should be significantly faster
+        $this->assertLessThan($uncachedTime, $cachedTime);
+    }
+
     #[Test]
     public function test_grapheme_display_width_extensive(): void
     {
