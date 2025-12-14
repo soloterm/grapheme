@@ -133,18 +133,66 @@ class Grapheme
             return static::cache($grapheme, 1);
         }
 
+        // Cache ord() calls to avoid redundant function calls
+        $firstByte = ord($grapheme[0]);
+
         // Fast path for pure ASCII multi-char: all bytes < 0x80
         // Check first byte - if it's ASCII, likely all are (common case)
-        $firstByte = ord($grapheme[0]);
-        if ($firstByte < 0x80 && strlen($grapheme) === mb_strlen($grapheme)) {
+        if ($firstByte < 0x80 && $len === mb_strlen($grapheme)) {
             return static::cache($grapheme, 1);
         }
 
-        // Fast path for common CJK characters (3-byte UTF-8 sequences)
-        // CJK Unified Ideographs: U+4E00-U+9FFF → UTF-8: E4 B8 80 to E9 BF BF
-        if ($len === 3 && $firstByte >= 0xE4 && $firstByte <= 0xE9) {
+        // Fast path for 2-byte UTF-8 sequences - width 1
+        // Covers: Latin-1 Supplement, Latin Extended A/B, IPA, Spacing Modifiers (C2-CB)
+        // Excludes: Combining Diacritical Marks (CC-CD) which are width 0
+        if ($len === 2 && $firstByte >= 0xC2 && $firstByte <= 0xCB) {
+            return static::cache($grapheme, 1);
+        }
+
+        // Fast paths for 3-byte UTF-8 sequences
+        if ($len === 3) {
             $secondByte = ord($grapheme[1]);
-            if ($secondByte >= 0x80 && $secondByte <= 0xBF) {
+
+            // BOM (EF BB BF) - check first as it's simple
+            if ($firstByte === 0xEF && $secondByte === 0xBB && ord($grapheme[2]) === 0xBF) {
+                return static::cache($grapheme, 0);
+            }
+
+            // E2 prefix: handle both zero-width and width-1 ranges
+            if ($firstByte === 0xE2) {
+                // Width-1 fast paths (most common for TUI apps)
+                if (($secondByte >= 0x86 && $secondByte <= 0x8B) || // Arrows + Math
+                    ($secondByte >= 0x94 && $secondByte <= 0x96)) { // Box Drawing + Block Elements
+                    return static::cache($grapheme, 1);
+                }
+                // Zero-width characters
+                if ($secondByte === 0x80 || $secondByte === 0x81) {
+                    $thirdByte = ord($grapheme[2]);
+                    // ZWSP, ZWNJ, ZWJ, LRM, RLM (E2 80 8B-8F)
+                    if ($secondByte === 0x80 && $thirdByte >= 0x8B && $thirdByte <= 0x8F) {
+                        return static::cache($grapheme, 0);
+                    }
+                    // Word Joiner and related (E2 81 A0-A4)
+                    if ($secondByte === 0x81 && $thirdByte >= 0xA0 && $thirdByte <= 0xA4) {
+                        return static::cache($grapheme, 0);
+                    }
+                }
+            }
+
+            // Hiragana (E3 81-82) and Katakana (E3 82-83) - width 2
+            // Also covers CJK Symbols (E3 80-81) which are mostly width 2
+            if ($firstByte === 0xE3 && $secondByte >= 0x80 && $secondByte <= 0xBF) {
+                return static::cache($grapheme, 2);
+            }
+
+            // CJK Unified Ideographs: U+4E00-U+9FFF → E4-E9 - width 2
+            if ($firstByte >= 0xE4 && $firstByte <= 0xE9 && $secondByte >= 0x80 && $secondByte <= 0xBF) {
+                return static::cache($grapheme, 2);
+            }
+
+            // Korean Hangul Syllables: U+AC00-U+D7AF → EA B0 - ED 9E - width 2
+            // Also covers CJK Extension A (E4-E9 already handled) and other East Asian
+            if ($firstByte >= 0xEA && $firstByte <= 0xED && $secondByte >= 0x80 && $secondByte <= 0xBF) {
                 return static::cache($grapheme, 2);
             }
         }
