@@ -1,0 +1,11 @@
+{
+    "title": "Grapheme",
+    "description": "Calculate Unicode grapheme display width for terminal applications",
+    "pages": [
+        { "slug": "index", "title": "Introduction" },
+        { "slug": "installation", "title": "Installation" },
+        { "slug": "usage", "title": "Usage" },
+        { "slug": "unicode-support", "title": "Unicode Support" },
+        { "slug": "api-reference", "title": "API Reference" }
+    ]
+}

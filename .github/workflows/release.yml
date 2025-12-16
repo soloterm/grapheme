@@ -1,4 +1,5 @@
 name: Release
+run-name: Release v${{ inputs.version }}
 
 on:
   workflow_dispatch:
@@ -17,8 +18,46 @@ jobs:
     if: github.actor == 'aarondfrancis'
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Invalid version format '$VERSION'. Expected X.Y.Z"
+            exit 1
+          fi
+
+      - name: Validate changelog (before creating tag)
+        run: |
+          chmod +x .github/scripts/parse-changelog.sh
+          .github/scripts/parse-changelog.sh validate
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update changelog
+        run: |
+          VERSION="${{ inputs.version }}"
+          .github/scripts/parse-changelog.sh release "$VERSION"
+
+      - name: Commit changelog update
+        run: |
+          VERSION="${{ inputs.version }}"
+          git add CHANGELOG.md
+          git commit -m "Update changelog for v$VERSION"
+          git push
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ inputs.version }}"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
 
       - name: Extract release notes from CHANGELOG
         id: changelog
@@ -43,13 +82,6 @@ jobs:
 
           # Write to file to preserve newlines
           echo "$NOTES" > release_notes.md
-
-      - name: Create and push tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

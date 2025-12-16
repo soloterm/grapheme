@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
 ## [1.2.0] - 2025-12-14
 
 ### Changed
@@ -30,7 +35,7 @@ All notable changes to this project will be documented in this file.
 - Empty string handling - `wcwidth('')` now returns 0
 
 ### Changed
-- **2x performance improvement** for uncached lookups (~800k � ~1.6M calls/sec)
+- **2x performance improvement** for uncached lookups (~800k → ~1.6M calls/sec)
 - Byte-level fast paths for common character types:
   - Single-byte ASCII: direct return without multibyte function calls
   - CJK characters: UTF-8 byte pattern detection (0xE4-0xE9 first byte)
@@ -47,3 +52,8 @@ All notable changes to this project will be documented in this file.
 - Support for CJK, emoji, zero-width characters, combining marks, and more
 - Smart caching for performance
 - 170+ test assertions
+
+[Unreleased]: https://github.com/soloterm/grapheme/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/soloterm/grapheme/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/soloterm/grapheme/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/soloterm/grapheme/releases/tag/v1.0.0
