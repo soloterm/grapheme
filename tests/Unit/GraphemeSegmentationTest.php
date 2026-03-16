@@ -20,7 +20,7 @@ class GraphemeSegmentationTest extends TestCase
     {
         $this->assertSame(["e\u{0301}"], Grapheme::split("e\u{0301}"));
         $this->assertSame(["\u{2764}\u{FE0F}"], Grapheme::split("\u{2764}\u{FE0F}"));
-        $this->assertSame(["👨‍👩‍👧‍👦"], Grapheme::split('👨‍👩‍👧‍👦'));
+        $this->assertSame(['👨‍👩‍👧‍👦'], Grapheme::split('👨‍👩‍👧‍👦'));
         $this->assertSame(['文', 'A'], Grapheme::split('文A'));
     }
 

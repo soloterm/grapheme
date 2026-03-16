@@ -136,7 +136,7 @@ class Grapheme
             $nextCarry = array_pop($units)['text'] . $nextCarry;
         }
 
-        return ['graphemes' => array_values(array_map(static fn (array $unit): string => $unit['text'], $units)), 'carry' => $nextCarry];
+        return ['graphemes' => array_values(array_map(static fn(array $unit): string => $unit['text'], $units)), 'carry' => $nextCarry];
     }
 
     /**
@@ -433,7 +433,7 @@ class Grapheme
         $units = [];
 
         foreach ($segments as $segment) {
-            if (! $segment['valid']) {
+            if (!$segment['valid']) {
                 $units[] = $withMetadata ? $segment : $segment['text'];
 
                 continue;
@@ -592,7 +592,7 @@ class Grapheme
             return ['status' => 'incomplete'];
         }
 
-        if (! static::isContinuationByte(ord($text[$offset + 2]))) {
+        if (!static::isContinuationByte(ord($text[$offset + 2]))) {
             return ['status' => 'invalid'];
         }
 
