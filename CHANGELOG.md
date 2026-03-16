@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Coverage for Indic conjunct segmentation and chunked segmentation parity when native `intl` grapheme boundaries are available
+
+### Changed
+- Valid UTF-8 segmentation now prefers native grapheme boundaries when available and falls back to regex-based `\X` segmentation when the grapheme backend is unavailable
+- Expanded segmentation documentation to call out native `intl` boundary behavior versus polyfill fallback
+
 ## [1.1.0] - 2026-03-16
 
 ### Added
