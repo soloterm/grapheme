@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-03-16
+
 ### Added
 - Coverage for Indic conjunct segmentation and chunked segmentation parity when native `intl` grapheme boundaries are available
 
 ### Changed
 - Valid UTF-8 segmentation now prefers native grapheme boundaries when available and falls back to regex-based `\X` segmentation when the grapheme backend is unavailable
 - Expanded segmentation documentation to call out native `intl` boundary behavior versus polyfill fallback
+
 
 ## [1.1.0] - 2026-03-16
 
@@ -64,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smart caching for performance
 - 170+ test assertions
 
-[Unreleased]: https://github.com/soloterm/grapheme/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/soloterm/grapheme/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/soloterm/grapheme/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/soloterm/grapheme/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/soloterm/grapheme/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/soloterm/grapheme/compare/v1.0.0...v1.0.1
