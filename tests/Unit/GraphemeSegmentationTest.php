@@ -53,7 +53,7 @@ class GraphemeSegmentationTest extends TestCase
     {
         $this->assertSame(
             Grapheme::split('नमस्ते'),
-            $this->streamChunks(['नमस', "्ते"])
+            $this->streamChunks(['नमस', '्ते'])
         );
     }
 
