@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.2.0)'
+        description: 'Version to release (e.g., 1.0.3)'
         required: true
         type: string
 
@@ -18,18 +18,53 @@ jobs:
     if: github.actor == 'aarondfrancis'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Validate version format
+      - name: Validate release target
         run: |
           VERSION="${{ inputs.version }}"
+
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Error: Releases must be created from the main branch. Current ref: $GITHUB_REF"
+            exit 1
+          fi
+
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Error: Invalid version format '$VERSION'. Expected X.Y.Z"
             exit 1
           fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Validate version state
+        run: |
+          VERSION="${{ inputs.version }}"
+
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "Error: Tag v$VERSION already exists"
+            exit 1
+          fi
+
+          if grep -F -q "## [$VERSION]" CHANGELOG.md; then
+            echo "Error: CHANGELOG.md already contains a $VERSION section"
+            exit 1
+          fi
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Run tests
+        run: composer test
 
       - name: Validate changelog (before creating tag)
         run: |
@@ -51,7 +86,7 @@ jobs:
           VERSION="${{ inputs.version }}"
           git add CHANGELOG.md
           git commit -m "Update changelog for v$VERSION"
-          git push
+          git push origin HEAD:main
 
       - name: Create and push tag
         run: |

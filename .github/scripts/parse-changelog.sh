@@ -78,6 +78,10 @@ release() {
 
     check_changelog_exists
 
+    if grep -F -q "## [$version]" "$CHANGELOG_FILE"; then
+        error "CHANGELOG.md already contains a section for version $version"
+    fi
+
     local date
     date=$(date +%Y-%m-%d)
 
@@ -132,17 +136,35 @@ release() {
         rm -f "$CHANGELOG_FILE.bak"
     fi
 
-    # Find previous version for the new link
+    # Find the previous version heading after the newly inserted release section
     local prev_version
-    prev_version=$(grep -oE '\[[0-9]+\.[0-9]+\.[0-9]+\](?=:)' "$CHANGELOG_FILE" 2>/dev/null | head -1 | tr -d '[]' || true)
+    prev_version=$(awk -v version="$version" '
+        $0 ~ "^## \\[" version "\\]" { found = 1; next }
+        found && /^## \[/ {
+            line = $0
+            sub(/^## \[/, "", line)
+            sub(/\].*$/, "", line)
+            print line
+            exit
+        }
+    ' "$CHANGELOG_FILE")
 
     # Add new version link
-    if [[ -n "$prev_version" ]] && [[ "$prev_version" != "$version" ]]; then
-        # Insert new version link before the previous version link
-        sed -i.bak "/^\[$prev_version\]:/i\\
-[$version]: $repo_url/compare/v$prev_version...v$version
-" "$CHANGELOG_FILE"
-        rm -f "$CHANGELOG_FILE.bak"
+    if grep -q "^\[$version\]:" "$CHANGELOG_FILE"; then
+        :
+    elif [[ -n "$prev_version" ]] && [[ "$prev_version" != "$version" ]]; then
+        awk -v target="$prev_version" -v newline="[$version]: $repo_url/compare/v$prev_version...v$version" '
+            $0 ~ "^\\[" target "\\]:" && !inserted {
+                print newline
+                inserted = 1
+            }
+            { print }
+            END {
+                if (!inserted) {
+                    print newline
+                }
+            }
+        ' "$CHANGELOG_FILE" > "$CHANGELOG_FILE.tmp" && mv "$CHANGELOG_FILE.tmp" "$CHANGELOG_FILE"
     elif ! grep -q "^\[$version\]:" "$CHANGELOG_FILE"; then
         # First release - add link at the end
         echo "[$version]: $repo_url/releases/tag/v$version" >> "$CHANGELOG_FILE"
