@@ -65,6 +65,9 @@ Grapheme::split('👨‍👩‍👧‍👦');    // ["👨‍👩‍👧‍👦"
 Grapheme::split('文A');             // ['文', 'A']
 ```
 
+When native `intl` is available, segmentation follows ICU's current Unicode grapheme boundary data. Without it, the
+package falls back to the Symfony polyfill behavior.
+
 ### splitChunk()
 
 Use `splitChunk()` when bytes arrive incrementally from a stream. The method keeps the trailing grapheme in `carry`

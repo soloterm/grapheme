@@ -17,16 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Grapheme::splitChunk(string $carry, string $chunk): array{graphemes: array, carry: string}` for streaming segmentation across arbitrary byte boundaries
 - Deterministic fuzz tests for full-string and chunked segmentation behavior
 - `benchmarks/wcwidth.php` and `composer benchmark` for standalone width benchmarking
+- Coverage for Indic conjunct segmentation and chunked segmentation parity
 
 ### Changed
 - Substantially improved uncached `wcwidth()` performance with additional byte-level fast paths and reduced redundant `ord()` calls
 - Added fast paths for ASCII, CJK, emoji, Latin Extended ranges, box drawing, arrows, mathematical operators, and Hangul syllables
 - Cache size is tracked with a counter instead of `count()` on every miss
 - Segmentation now preserves grapheme clusters across chunk boundaries for combining marks, variation selectors, ZWJ sequences, emoji modifiers, and regional indicator flags
+- Valid UTF-8 segmentation now prefers native grapheme boundaries when available and falls back to regex-based `\X` segmentation when the grapheme backend is unavailable
 - Streaming segmentation now keeps incomplete trailing UTF-8 in `carry` and preserves invalid UTF-8 bytes as opaque segments
 - Added required Symfony polyfills for grapheme and multibyte string support in consumer installs
 - Moved benchmark timing out of the PHPUnit correctness suite and into a dedicated benchmark script
-- Expanded documentation for segmentation, streaming flush behavior, and invalid-byte handling
+- Expanded documentation for segmentation, streaming flush behavior, invalid-byte handling, and native `intl` boundary differences
 
 ### Fixed
 - `wcwidth('')` now returns `0`

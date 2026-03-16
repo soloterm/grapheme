@@ -49,6 +49,25 @@ class GraphemeSegmentationTest extends TestCase
     }
 
     #[Test]
+    public function split_chunk_matches_split_for_indic_conjunct_sequences(): void
+    {
+        $this->assertSame(
+            Grapheme::split('नमस्ते'),
+            $this->streamChunks(['नमस', "्ते"])
+        );
+    }
+
+    #[Test]
+    public function native_intl_uses_current_unicode_grapheme_boundaries_for_indic_conjuncts(): void
+    {
+        if (!extension_loaded('intl')) {
+            $this->markTestSkipped('Native intl is required for this boundary expectation.');
+        }
+
+        $this->assertSame(['न', 'म', 'स्ते'], Grapheme::split('नमस्ते'));
+    }
+
+    #[Test]
     public function split_chunk_preserves_invalid_bytes_without_growing_carry_forever(): void
     {
         $this->assertSame(["\xFF", 'A'], $this->streamChunks(["\xFF", 'A']));

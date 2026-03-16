@@ -399,7 +399,7 @@ class Grapheme
     /**
      * @return list<string>
      */
-    protected static function splitWithGraphemeExtract(string $text): array
+    protected static function splitValidUtf8IntoGraphemes(string $text): array
     {
         $graphemes = [];
         $offset = 0;
@@ -422,7 +422,15 @@ class Grapheme
             $offset = $next;
         }
 
-        return $graphemes;
+        if ($graphemes !== []) {
+            return $graphemes;
+        }
+
+        if (preg_match_all('/\X/u', $text, $matches) !== false) {
+            return $matches[0];
+        }
+
+        return [$text];
     }
 
     /**
@@ -439,7 +447,7 @@ class Grapheme
                 continue;
             }
 
-            foreach (static::splitWithGraphemeExtract($segment['text']) as $grapheme) {
+            foreach (static::splitValidUtf8IntoGraphemes($segment['text']) as $grapheme) {
                 $units[] = $withMetadata ? ['valid' => true, 'text' => $grapheme] : $grapheme;
             }
         }

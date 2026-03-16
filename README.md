@@ -142,7 +142,7 @@ The library uses a series of optimized patterns and checks to accurately determi
 
 1. **Byte-level fast paths** - Single-byte ASCII, CJK (UTF-8 0xE4-0xE9), and emoji (UTF-8 0xF0 0x9F) are detected by examining raw bytes, avoiding expensive regex operations
 2. **Smart caching** - Results are cached with automatic size limiting to prevent memory growth in long-running processes
-3. **Official grapheme extraction** - String segmentation uses `grapheme_extract()` with Symfony polyfills as fallback support
+3. **Best-available Unicode segmentation** - Valid UTF-8 text is segmented with native grapheme functions first, with regex fallback only if that backend is unavailable
 4. **Chunk-safe UTF-8 handling** - Streaming segmentation preserves incomplete UTF-8 suffixes and the trailing grapheme in `carry`
 5. **Special handling** for complex scripts like Devanagari, emoji variation selectors, and invisible joiners
 

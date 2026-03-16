@@ -92,6 +92,9 @@ Grapheme::split('👨‍👩‍👧‍👦');    // ["👨‍👩‍👧‍👦"
 Grapheme::split('文A');             // ['文', 'A']
 ```
 
+When native `intl` is available, this method follows ICU's current Unicode grapheme boundary data. Without it, the
+package falls back to the Symfony polyfill behavior.
+
 ---
 
 ### splitChunk()
