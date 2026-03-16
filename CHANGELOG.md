@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-16
+
 ### Added
 - `clearCache()` to manually clear the width cache for long-running processes
 - `setMaxCacheSize()` to configure the maximum cache size
@@ -35,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed an over-broad width heuristic in the `E3` block that misclassified characters such as `U+303F`
 - Flag sequence detection now uses explicit regional-indicator ranges instead of the non-portable `\p{Regional_Indicator}` property
 
+
 ## [1.0.2] - 2025-03-24
 
 ### Fixed
@@ -52,7 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smart caching for performance
 - 170+ test assertions
 
-[Unreleased]: https://github.com/soloterm/grapheme/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/soloterm/grapheme/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/soloterm/grapheme/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/soloterm/grapheme/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/soloterm/grapheme/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/soloterm/grapheme/releases/tag/v1.0.0
