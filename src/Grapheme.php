@@ -42,7 +42,7 @@ class Grapheme
 
     protected static $textStyleEmojiPattern = '/^[\x{2600}-\x{26FF}\x{2700}-\x{27BF}]$/u';
 
-    protected static $flagSequencePattern = '/\p{Regional_Indicator}{2}|\x{1F3F4}[\x{E0060}-\x{E007F}]+/u';
+    protected static $flagSequencePattern = '/[\x{1F1E6}-\x{1F1FF}]{2}|\x{1F3F4}[\x{E0060}-\x{E007F}]+/u';
 
     protected static $asciiZwjPattern = '/^[\x00-\x7F][\x{200B}\x{200C}\x{200D}\x{FEFF}\x{2060}-\x{2064}]+$/u';
 

@@ -11,6 +11,7 @@ namespace SoloTerm\Grapheme\Tests\Unit;
 
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 use SoloTerm\Grapheme\Grapheme;
 
 class GraphemeWidthTest extends TestCase
@@ -83,6 +84,22 @@ class GraphemeWidthTest extends TestCase
         $this->assertSame(0, Grapheme::wcwidth("\u{302E}"));
         $this->assertSame(1, Grapheme::wcwidth("\u{303F}"));
         $this->assertSame(2, Grapheme::wcwidth('あ'));
+    }
+
+    #[Test]
+    public function flag_sequence_pattern_uses_portable_ranges_and_matches_flags(): void
+    {
+        $reflection = new ReflectionClass(Grapheme::class);
+        $property = $reflection->getProperty('flagSequencePattern');
+        /** @var string $pattern */
+        $pattern = $property->getValue();
+        $england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
+
+        $this->assertStringNotContainsString('Regional_Indicator', $pattern);
+        $this->assertSame(1, preg_match($pattern, '🇺🇸'));
+        $this->assertSame(1, preg_match($pattern, $england));
+        $this->assertSame(2, Grapheme::wcwidth('🇺🇸'));
+        $this->assertSame(2, Grapheme::wcwidth($england));
     }
 
     #[Test]
