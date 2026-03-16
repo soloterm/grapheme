@@ -92,6 +92,54 @@ class Grapheme
     }
 
     /**
+     * Split a UTF-8 string into grapheme clusters.
+     *
+     * @return list<string>
+     */
+    public static function split(string $text): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        return static::splitUnits(static::scanUtf8Segments($text, false)['segments']);
+    }
+
+    /**
+     * Split a streamed UTF-8 chunk, preserving the trailing grapheme in carry.
+     *
+     * Pass an empty chunk to flush the final completed grapheme at end-of-input.
+     *
+     * @return array{graphemes: list<string>, carry: string}
+     */
+    public static function splitChunk(string $carry, string $chunk): array
+    {
+        if ($carry === '' && $chunk === '') {
+            return ['graphemes' => [], 'carry' => ''];
+        }
+
+        if ($chunk === '') {
+            return ['graphemes' => static::split($carry), 'carry' => ''];
+        }
+
+        $scan = static::scanUtf8Segments($carry . $chunk, true);
+        $units = static::splitUnits($scan['segments'], true);
+
+        if ($units === []) {
+            return ['graphemes' => [], 'carry' => $scan['carry']];
+        }
+
+        $nextCarry = $scan['carry'];
+        $lastUnit = $units[array_key_last($units)];
+
+        if ($lastUnit['valid']) {
+            $nextCarry = array_pop($units)['text'] . $nextCarry;
+        }
+
+        return ['graphemes' => array_values(array_map(static fn (array $unit): string => $unit['text'], $units)), 'carry' => $nextCarry];
+    }
+
+    /**
      * Cache a width value and return it.
      */
     protected static function cache(string $grapheme, int $width): int
@@ -149,6 +197,15 @@ class Grapheme
             return static::cache($grapheme, 1);
         }
 
+        // Standalone combining marks and variation selectors are zero-width.
+        if (preg_match(static::$onlyCombiningMarksPattern, $grapheme)) {
+            return static::cache($grapheme, 0);
+        }
+
+        if (mb_strlen($grapheme) === 1 && preg_match(static::$variationSelectorsPattern, $grapheme)) {
+            return static::cache($grapheme, 0);
+        }
+
         // Fast paths for 3-byte UTF-8 sequences
         if ($len === 3) {
             $secondByte = ord($grapheme[1]);
@@ -177,12 +234,6 @@ class Grapheme
                         return static::cache($grapheme, 0);
                     }
                 }
-            }
-
-            // Hiragana (E3 81-82) and Katakana (E3 82-83) - width 2
-            // Also covers CJK Symbols (E3 80-81) which are mostly width 2
-            if ($firstByte === 0xE3 && $secondByte >= 0x80 && $secondByte <= 0xBF) {
-                return static::cache($grapheme, 2);
             }
 
             // CJK Unified Ideographs: U+4E00-U+9FFF → E4-E9 - width 2
@@ -254,6 +305,10 @@ class Grapheme
         // Handle variation selectors
         if (preg_match(static::$variationSelectorsPattern, $grapheme)) {
             $baseChar = preg_replace(static::$variationSelectorsPattern, '', $grapheme);
+
+            if ($baseChar === '') {
+                return static::cache($grapheme, 0);
+            }
 
             // Text style variation selector for emoji-capable symbols
             if (mb_strpos($grapheme, "\u{FE0E}") !== false) {
@@ -339,5 +394,219 @@ class Grapheme
         $width = mb_strwidth($filtered, 'UTF-8');
 
         return static::cache($grapheme, ($width !== false && $width > 0) ? $width : 1);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected static function splitWithGraphemeExtract(string $text): array
+    {
+        $graphemes = [];
+        $offset = 0;
+        $length = strlen($text);
+
+        while ($offset < $length) {
+            $next = 0;
+            $grapheme = grapheme_extract($text, 1, GRAPHEME_EXTR_COUNT, $offset, $next);
+
+            if ($grapheme === false || $grapheme === '') {
+                break;
+            }
+
+            $graphemes[] = $grapheme;
+
+            if ($next <= $offset) {
+                break;
+            }
+
+            $offset = $next;
+        }
+
+        return $graphemes;
+    }
+
+    /**
+     * @return list<string>|list<array{valid: bool, text: string}>
+     */
+    protected static function splitUnits(array $segments, bool $withMetadata = false): array
+    {
+        $units = [];
+
+        foreach ($segments as $segment) {
+            if (! $segment['valid']) {
+                $units[] = $withMetadata ? $segment : $segment['text'];
+
+                continue;
+            }
+
+            foreach (static::splitWithGraphemeExtract($segment['text']) as $grapheme) {
+                $units[] = $withMetadata ? ['valid' => true, 'text' => $grapheme] : $grapheme;
+            }
+        }
+
+        return $units;
+    }
+
+    /**
+     * @return array{segments: list<array{valid: bool, text: string}>, carry: string}
+     */
+    protected static function scanUtf8Segments(string $text, bool $allowTrailingPartial): array
+    {
+        $segments = [];
+        $validRun = '';
+        $offset = 0;
+        $length = strlen($text);
+
+        while ($offset < $length) {
+            $byte = ord($text[$offset]);
+
+            if ($byte <= 0x7F) {
+                $validRun .= $text[$offset];
+                $offset++;
+
+                continue;
+            }
+
+            $status = static::utf8SequenceStatus($text, $offset);
+
+            if ($status['status'] === 'valid') {
+                $validRun .= substr($text, $offset, $status['length']);
+                $offset += $status['length'];
+
+                continue;
+            }
+
+            if ($validRun !== '') {
+                $segments[] = ['valid' => true, 'text' => $validRun];
+                $validRun = '';
+            }
+
+            if ($status['status'] === 'incomplete' && $allowTrailingPartial) {
+                break;
+            }
+
+            $segments[] = ['valid' => false, 'text' => $text[$offset]];
+            $offset++;
+        }
+
+        if ($validRun !== '') {
+            $segments[] = ['valid' => true, 'text' => $validRun];
+        }
+
+        return ['segments' => $segments, 'carry' => $allowTrailingPartial ? substr($text, $offset) : ''];
+    }
+
+    /**
+     * @return array{status: 'valid', length: int}|array{status: 'invalid'}|array{status: 'incomplete'}
+     */
+    protected static function utf8SequenceStatus(string $text, int $offset): array
+    {
+        $length = strlen($text) - $offset;
+        $firstByte = ord($text[$offset]);
+
+        if ($firstByte >= 0xC2 && $firstByte <= 0xDF) {
+            if ($length < 2) {
+                return ['status' => 'incomplete'];
+            }
+
+            return static::isContinuationByte(ord($text[$offset + 1]))
+                ? ['status' => 'valid', 'length' => 2]
+                : ['status' => 'invalid'];
+        }
+
+        if ($firstByte === 0xE0) {
+            return static::validateThreeByteSequence($text, $offset, 0xA0, 0xBF);
+        }
+
+        if ($firstByte >= 0xE1 && $firstByte <= 0xEC) {
+            return static::validateThreeByteSequence($text, $offset, 0x80, 0xBF);
+        }
+
+        if ($firstByte === 0xED) {
+            return static::validateThreeByteSequence($text, $offset, 0x80, 0x9F);
+        }
+
+        if ($firstByte >= 0xEE && $firstByte <= 0xEF) {
+            return static::validateThreeByteSequence($text, $offset, 0x80, 0xBF);
+        }
+
+        if ($firstByte === 0xF0) {
+            return static::validateFourByteSequence($text, $offset, 0x90, 0xBF);
+        }
+
+        if ($firstByte >= 0xF1 && $firstByte <= 0xF3) {
+            return static::validateFourByteSequence($text, $offset, 0x80, 0xBF);
+        }
+
+        if ($firstByte === 0xF4) {
+            return static::validateFourByteSequence($text, $offset, 0x80, 0x8F);
+        }
+
+        return ['status' => 'invalid'];
+    }
+
+    /**
+     * @return array{status: 'valid', length: int}|array{status: 'invalid'}|array{status: 'incomplete'}
+     */
+    protected static function validateThreeByteSequence(string $text, int $offset, int $minSecondByte, int $maxSecondByte): array
+    {
+        $available = strlen($text) - $offset;
+
+        if ($available < 2) {
+            return ['status' => 'incomplete'];
+        }
+
+        $secondByte = ord($text[$offset + 1]);
+
+        if ($secondByte < $minSecondByte || $secondByte > $maxSecondByte) {
+            return ['status' => 'invalid'];
+        }
+
+        if ($available < 3) {
+            return ['status' => 'incomplete'];
+        }
+
+        return static::isContinuationByte(ord($text[$offset + 2]))
+            ? ['status' => 'valid', 'length' => 3]
+            : ['status' => 'invalid'];
+    }
+
+    /**
+     * @return array{status: 'valid', length: int}|array{status: 'invalid'}|array{status: 'incomplete'}
+     */
+    protected static function validateFourByteSequence(string $text, int $offset, int $minSecondByte, int $maxSecondByte): array
+    {
+        $available = strlen($text) - $offset;
+
+        if ($available < 2) {
+            return ['status' => 'incomplete'];
+        }
+
+        $secondByte = ord($text[$offset + 1]);
+
+        if ($secondByte < $minSecondByte || $secondByte > $maxSecondByte) {
+            return ['status' => 'invalid'];
+        }
+
+        if ($available < 3) {
+            return ['status' => 'incomplete'];
+        }
+
+        if (! static::isContinuationByte(ord($text[$offset + 2]))) {
+            return ['status' => 'invalid'];
+        }
+
+        if ($available < 4) {
+            return ['status' => 'incomplete'];
+        }
+
+        return static::isContinuationByte(ord($text[$offset + 3]))
+            ? ['status' => 'valid', 'length' => 4]
+            : ['status' => 'invalid'];
+    }
+
+    protected static function isContinuationByte(int $byte): bool
+    {
+        return $byte >= 0x80 && $byte <= 0xBF;
     }
 }

@@ -194,12 +194,13 @@ Grapheme::wcwidth('ب');   // 1
 
 ## Control Characters
 
-Most control characters are zero-width:
+ASCII control characters are treated as width 1 by `wcwidth()`. In terminal applications they usually affect layout
+through higher-level control flow rather than as printable graphemes, so callers often handle them separately.
 
 ```php
-Grapheme::wcwidth("\t");      // 0 (tab)
-Grapheme::wcwidth("\n");      // 0 (newline)
-Grapheme::wcwidth("\u{00}");  // 0 (null)
+Grapheme::wcwidth("\t");      // 1 (tab)
+Grapheme::wcwidth("\n");      // 1 (newline)
+Grapheme::wcwidth("\u{00}");  // 1 (null)
 ```
 
 ## Terminal Compatibility
@@ -230,7 +231,8 @@ Characters not in any category default to width 1 (using `mb_strwidth` as fallba
 
 ### Malformed UTF-8
 
-Invalid UTF-8 sequences may produce unexpected results. Ensure input is valid UTF-8.
+Invalid UTF-8 bytes do not throw during segmentation. `split()` emits them as single-byte segments, and `splitChunk()`
+keeps incomplete trailing bytes in `carry` until they can be completed or flushed at EOF.
 
 ## Next Steps
 

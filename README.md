@@ -6,7 +6,8 @@
 
 A highly optimized PHP library for calculating the display width of Unicode graphemes in terminal environments.
 Accurately determine how many columns a character will occupy in the terminal, including complex emoji, combining marks,
-and more.
+and more. It also provides full-string and chunked grapheme segmentation so downstream renderers can share the same
+Unicode boundary logic.
 
 This library was built to support [Solo](https://github.com/soloterm/solo), your all-in-one Laravel command to tame local development.
 
@@ -64,6 +65,38 @@ Grapheme::wcwidth("⚠\u{FE0F}"); // Returns: 2 (Warning sign in emoji presentat
 Grapheme::wcwidth(''); // Returns: 0
 ```
 
+### Segmentation
+
+```php
+// Split a full string into grapheme clusters
+Grapheme::split("e\u{0301}"); // Returns: ["é"]
+Grapheme::split("\u{2764}\u{FE0F}"); // Returns: ["❤️"]
+Grapheme::split('👨‍👩‍👧‍👦'); // Returns: ["👨‍👩‍👧‍👦"]
+Grapheme::split('文A'); // Returns: ['文', 'A']
+```
+
+### Streaming / Chunked Segmentation
+
+`splitChunk()` preserves the trailing grapheme in `carry` so boundaries remain correct when text arrives in arbitrary
+byte chunks. Pass an empty chunk to flush the final completed grapheme at end-of-input. Invalid UTF-8 bytes are
+preserved as single-byte segments instead of throwing.
+
+```php
+$carry = '';
+$graphemes = [];
+
+foreach (["e", "\u{0301}"] as $chunk) {
+    $result = Grapheme::splitChunk($carry, $chunk);
+    $graphemes = [...$graphemes, ...$result['graphemes']];
+    $carry = $result['carry'];
+}
+
+$result = Grapheme::splitChunk($carry, '');
+$graphemes = [...$graphemes, ...$result['graphemes']];
+
+// ["é"]
+```
+
 ### Cache Management
 
 Results are cached automatically for performance. For long-running processes, you can manage the cache:
@@ -81,6 +114,7 @@ Grapheme::setMaxCacheSize(5000);
 
 - **Highly optimized** for performance with byte-level fast paths and smart caching
 - **Memory safe** for long-running processes with configurable cache limits
+- **Full-string and streaming segmentation** with a single source of truth for grapheme boundaries
 - **Comprehensive Unicode support** including:
     - CJK (Chinese, Japanese, Korean) characters
     - Emoji (including skin tone modifiers, gender modifiers, flags)
@@ -88,7 +122,7 @@ Grapheme::setMaxCacheSize(5000);
     - Combining marks and accents
     - Regional indicators and flags
     - Variation selectors
-- **Carefully tested** against a wide range of Unicode characters (180+ assertions)
+- **Carefully tested** against a wide range of Unicode characters and streaming boundary cases (200+ assertions)
 - **Minimal dependencies** - only requires PHP 8.1+ and an optional intl extension
 - **Compatible** with most terminal environments
 
@@ -99,7 +133,7 @@ This library aims to match the behavior of `wcwidth()` in modern terminal emulat
 ## Requirements
 
 - PHP 8.1 or higher
-- The `symfony/polyfill-intl-normalizer` package is included as a dependency
+- The `symfony/polyfill-intl-grapheme`, `symfony/polyfill-mbstring`, and `symfony/polyfill-intl-normalizer` packages are included as dependencies
 - The `ext-intl` extension is recommended for best performance
 
 ## Under the Hood
@@ -108,9 +142,9 @@ The library uses a series of optimized patterns and checks to accurately determi
 
 1. **Byte-level fast paths** - Single-byte ASCII, CJK (UTF-8 0xE4-0xE9), and emoji (UTF-8 0xF0 0x9F) are detected by examining raw bytes, avoiding expensive regex operations
 2. **Smart caching** - Results are cached with automatic size limiting to prevent memory growth in long-running processes
-3. **Special handling** for complex scripts like Devanagari
-4. **Smart detection** of emoji and variation selectors
-5. **Proper handling** of zero-width joiners (ZWJ) and other invisible characters
+3. **Official grapheme extraction** - String segmentation uses `grapheme_extract()` with Symfony polyfills as fallback support
+4. **Chunk-safe UTF-8 handling** - Streaming segmentation preserves incomplete UTF-8 suffixes and the trailing grapheme in `carry`
+5. **Special handling** for complex scripts like Devanagari, emoji variation selectors, and invisible joiners
 
 Performance benchmarks show ~1.6M uncached calls/sec and ~12M cached calls/sec on modern hardware.
 
@@ -118,9 +152,10 @@ Performance benchmarks show ~1.6M uncached calls/sec and ~12M cached calls/sec o
 
 ```bash
 composer test
+composer benchmark
 ```
 
-The test suite includes 180+ assertions covering extensive Unicode scenarios including ASCII, CJK, emoji, zero-width characters, variation selectors, and complex ZWJ sequences. Please feel free to add more.
+The test suite includes 200+ assertions covering extensive Unicode scenarios including ASCII, CJK, emoji, zero-width characters, variation selectors, complex ZWJ sequences, and chunked segmentation boundaries. Please feel free to add more.
 
 ## Contributing
 

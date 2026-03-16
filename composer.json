@@ -12,6 +12,8 @@
     "minimum-stability": "dev",
     "require": {
         "php": "^8.1",
+        "symfony/polyfill-intl-grapheme": "^1.27.0",
+        "symfony/polyfill-mbstring": "^1.27.0",
         "symfony/polyfill-intl-normalizer": "^1.27.0"
     },
     "require-dev": {
@@ -31,6 +33,7 @@
         "ext-intl": "For best performance"
     },
     "scripts": {
-        "test": "vendor/bin/phpunit"
+        "test": "vendor/bin/phpunit",
+        "benchmark": "php benchmarks/wcwidth.php"
     }
 }

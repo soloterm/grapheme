@@ -61,8 +61,75 @@ Grapheme::wcwidth("\u{200D}");      // 0
 **Notes**:
 
 - Pass a single grapheme cluster, not a multi-character string
-- Use `grapheme_split()` to split strings into grapheme clusters
+- Use `Grapheme::split()` to split strings into grapheme clusters
 - Results are cached automatically for performance
+
+---
+
+### split()
+
+```php
+public static function split(string $text): array
+```
+
+Split a UTF-8 string into grapheme clusters.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$text` | string | UTF-8 text to segment |
+
+**Returns**: `list<string>` of grapheme clusters
+
+For malformed UTF-8, invalid bytes are preserved as single-byte segments so the original byte stream can still be
+reconstructed.
+
+**Examples**:
+
+```php
+Grapheme::split("e\u{0301}");        // ["é"]
+Grapheme::split("\u{2764}\u{FE0F}"); // ["❤️"]
+Grapheme::split('👨‍👩‍👧‍👦');    // ["👨‍👩‍👧‍👦"]
+Grapheme::split('文A');             // ['文', 'A']
+```
+
+---
+
+### splitChunk()
+
+```php
+public static function splitChunk(string $carry, string $chunk): array
+```
+
+Split streamed UTF-8 input across arbitrary byte boundaries.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$carry` | string | Pending bytes and trailing grapheme from the previous chunk |
+| `$chunk` | string | Next raw byte chunk |
+
+**Returns**: `array{graphemes: list<string>, carry: string}`
+
+`carry` keeps the trailing grapheme plus any incomplete UTF-8 suffix so later chunks can finish the cluster safely.
+Pass an empty chunk to flush the final grapheme at end-of-input. Invalid UTF-8 bytes are emitted as single-byte
+segments instead of throwing.
+
+**Example**:
+
+```php
+$carry = '';
+$graphemes = [];
+
+foreach (["🇺", "🇸"] as $chunk) {
+    $result = Grapheme::splitChunk($carry, $chunk);
+    $graphemes = [...$graphemes, ...$result['graphemes']];
+    $carry = $result['carry'];
+}
+
+$result = Grapheme::splitChunk($carry, '');
+$graphemes = [...$graphemes, ...$result['graphemes']];
+
+// ['🇺🇸']
+```
 
 ---
 
@@ -172,7 +239,7 @@ echo count(Grapheme::$cache);
 function stringWidth(string $text): int
 {
     $width = 0;
-    $graphemes = grapheme_split($text) ?: [];
+    $graphemes = Grapheme::split($text);
 
     foreach ($graphemes as $grapheme) {
         $width += Grapheme::wcwidth($grapheme);
@@ -188,7 +255,7 @@ function stringWidth(string $text): int
 function padRight(string $text, int $targetWidth): string
 {
     $currentWidth = 0;
-    $graphemes = grapheme_split($text) ?: [];
+    $graphemes = Grapheme::split($text);
 
     foreach ($graphemes as $grapheme) {
         $currentWidth += Grapheme::wcwidth($grapheme);
@@ -207,7 +274,7 @@ function truncateToWidth(string $text, int $maxWidth, string $suffix = '…'): s
     $result = '';
     $width = 0;
     $suffixWidth = Grapheme::wcwidth($suffix);
-    $graphemes = grapheme_split($text) ?: [];
+    $graphemes = Grapheme::split($text);
 
     foreach ($graphemes as $grapheme) {
         $charWidth = Grapheme::wcwidth($grapheme);

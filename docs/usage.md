@@ -52,6 +52,41 @@ Grapheme::wcwidth("\u{FEFF}");   // 0 (BOM)
 Grapheme::wcwidth('');     // 0
 ```
 
+## Segmenting Strings
+
+### split()
+
+Use `split()` when you need grapheme clusters for width calculation, truncation, cursor movement, or rendering:
+
+```php
+Grapheme::split("e\u{0301}");        // ["é"]
+Grapheme::split("\u{2764}\u{FE0F}"); // ["❤️"]
+Grapheme::split('👨‍👩‍👧‍👦');    // ["👨‍👩‍👧‍👦"]
+Grapheme::split('文A');             // ['文', 'A']
+```
+
+### splitChunk()
+
+Use `splitChunk()` when bytes arrive incrementally from a stream. The method keeps the trailing grapheme in `carry`
+until the next chunk arrives. Pass an empty chunk to flush the final grapheme at EOF. Invalid UTF-8 bytes are emitted
+as single-byte segments so stream consumers can preserve the original byte stream.
+
+```php
+$carry = '';
+$graphemes = [];
+
+foreach (["👨‍", "👩‍👧‍👦"] as $chunk) {
+    $result = Grapheme::splitChunk($carry, $chunk);
+    $graphemes = [...$graphemes, ...$result['graphemes']];
+    $carry = $result['carry'];
+}
+
+$result = Grapheme::splitChunk($carry, '');
+$graphemes = [...$graphemes, ...$result['graphemes']];
+
+// ['👨‍👩‍👧‍👦']
+```
+
 ## Calculating String Width
 
 Calculate the total width of a string:
@@ -60,11 +95,7 @@ Calculate the total width of a string:
 function stringWidth(string $text): int
 {
     $width = 0;
-
-    // Split into grapheme clusters
-    $graphemes = grapheme_split($text) ?: [];
-
-    foreach ($graphemes as $grapheme) {
+    foreach (Grapheme::split($text) as $grapheme) {
         $width += Grapheme::wcwidth($grapheme);
     }
 
@@ -137,7 +168,7 @@ class MyDaemon
     public function process(string $text): void
     {
         // Process text...
-        foreach (grapheme_split($text) as $grapheme) {
+        foreach (Grapheme::split($text) as $grapheme) {
             $width = Grapheme::wcwidth($grapheme);
             // ...
         }
@@ -181,7 +212,7 @@ Cache hits are ~7x faster than cache misses. For repeated calculations, let the 
 ```php
 // Good: same graphemes get cached
 foreach ($lines as $line) {
-    foreach (grapheme_split($line) as $grapheme) {
+    foreach (Grapheme::split($line) as $grapheme) {
         $width = Grapheme::wcwidth($grapheme);
     }
 }
@@ -204,7 +235,7 @@ function processDocument(string $document): int
     $lines = explode("\n", $document);
 
     foreach ($lines as $line) {
-        foreach (grapheme_split($line) as $grapheme) {
+        foreach (Grapheme::split($line) as $grapheme) {
             $totalWidth += Grapheme::wcwidth($grapheme);
         }
     }

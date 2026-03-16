@@ -26,7 +26,7 @@ mb_strlen('😀');   // 1 (character)
 
 ## The Solution
 
-Grapheme provides a single function that returns the correct terminal width:
+Grapheme provides width calculation plus grapheme segmentation APIs:
 
 ```php
 use SoloTerm\Grapheme\Grapheme;
@@ -35,6 +35,8 @@ Grapheme::wcwidth('a');    // 1 - regular ASCII
 Grapheme::wcwidth('文');   // 2 - CJK character
 Grapheme::wcwidth('😀');   // 2 - emoji
 Grapheme::wcwidth('👨‍👩‍👧‍👦'); // 2 - complex ZWJ sequence
+Grapheme::split("e\u{0301}"); // ["é"]
+Grapheme::split('👨‍👩‍👧‍👦'); // ["👨‍👩‍👧‍👦"]
 ```
 
 The name `wcwidth` comes from the POSIX C function of the same name.
@@ -66,6 +68,7 @@ Returns 0, 1, or 2 for any Unicode grapheme:
 - Zero-width joiners (ZWJ) sequences
 - Combining marks and accents
 - Variation selectors
+- Chunk-safe segmentation for streamed input
 
 ### Memory Safe
 
@@ -107,7 +110,7 @@ Grapheme::wcwidth('👍🏻');  // 2 (thumbs up + skin tone)
 function padToWidth(string $text, int $targetWidth): string
 {
     $width = 0;
-    foreach (grapheme_split($text) as $grapheme) {
+    foreach (Grapheme::split($text) as $grapheme) {
         $width += Grapheme::wcwidth($grapheme);
     }
 
@@ -125,7 +128,7 @@ echo padToWidth('你好', 10);    // "你好      " (4 columns for CJK)
 function drawBox(string $content, int $width): void
 {
     $contentWidth = 0;
-    foreach (grapheme_split($content) as $grapheme) {
+    foreach (Grapheme::split($content) as $grapheme) {
         $contentWidth += Grapheme::wcwidth($grapheme);
     }
 
