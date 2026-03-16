@@ -1,11 +1,11 @@
 name: Release
-run-name: Release v${{ inputs.version }}
+run-name: Release ${{ inputs.version }}
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.0.3)'
+        description: 'Version to release (e.g., 1.0.3 or v1.0.3)'
         required: true
         type: string
 
@@ -18,19 +18,25 @@ jobs:
     if: github.actor == 'aarondfrancis'
 
     steps:
-      - name: Validate release target
+      - name: Validate and normalize version
+        id: version
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION_RAW="${{ inputs.version }}"
 
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then
             echo "Error: Releases must be created from the main branch. Current ref: $GITHUB_REF"
             exit 1
           fi
 
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Invalid version format '$VERSION'. Expected X.Y.Z"
+          if ! [[ "$VERSION_RAW" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Invalid version format '$VERSION_RAW'. Expected X.Y.Z or vX.Y.Z"
             exit 1
           fi
+
+          VERSION="${VERSION_RAW#v}"
+
+          echo "normalized=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -40,10 +46,11 @@ jobs:
 
       - name: Validate version state
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ steps.version.outputs.normalized }}"
+          TAG_NAME="${{ steps.version.outputs.tag }}"
 
-          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
-            echo "Error: Tag v$VERSION already exists"
+          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+            echo "Error: Tag $TAG_NAME already exists"
             exit 1
           fi
 
@@ -78,26 +85,27 @@ jobs:
 
       - name: Update changelog
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ steps.version.outputs.normalized }}"
           .github/scripts/parse-changelog.sh release "$VERSION"
 
       - name: Commit changelog update
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ steps.version.outputs.normalized }}"
           git add CHANGELOG.md
           git commit -m "Update changelog for v$VERSION"
           git push origin HEAD:main
 
       - name: Create and push tag
         run: |
-          VERSION="${{ inputs.version }}"
-          git tag -a "v$VERSION" -m "Release v$VERSION"
-          git push origin "v$VERSION"
+          VERSION="${{ steps.version.outputs.normalized }}"
+          TAG_NAME="${{ steps.version.outputs.tag }}"
+          git tag -a "$TAG_NAME" -m "Release v$VERSION"
+          git push origin "$TAG_NAME"
 
       - name: Extract release notes from CHANGELOG
         id: changelog
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ steps.version.outputs.normalized }}"
 
           # Extract the section for this version from CHANGELOG.md
           # Matches from "## [X.Y.Z]" until the next "## [" or end of file
@@ -121,8 +129,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ inputs.version }}
-          name: v${{ inputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
           body_path: release_notes.md
           draft: false
           prerelease: false
